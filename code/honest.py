@@ -1,7 +1,6 @@
-from rvor_functions import *
+from agent_functions import *
 
 def main():
-
     # query the server to start
     print('connect to server')
     server_socket.connect((serverMACAddress, port))
@@ -9,7 +8,6 @@ def main():
     # server responses only when all the robots are connected
     # (value sended by server is not important)
     server_socket.recv(buffer_size)
-    #int_resp = int.from_bytes(resp, byteorder='big')
 
     # after that each robot uses an own counter
     # in this way all the robot operations are synchronized
