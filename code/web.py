@@ -16,6 +16,9 @@ class Agent():
         self.direction = direction
         self.node = node
 
+    def __repr__(self):
+        return 'Agent {}, Direction: {}, Node: {}'.format(self.ip, self.direction, self.node)
+
 class Node():
     def __init__(self, label):
         assert isinstance(label, int), 'Node constructor accepts numeric label only' 
@@ -68,6 +71,12 @@ class Ring():
             agent.direction = Direction.CW if config.oriented else random.choice(list(Direction))
             agent.node = node.label
             self.get_node(node.label).add_agent(agent.ip)
+
+    def dump(self):
+        ring = dict()
+        for node in self._nodes:
+           ring[str(node.label)] = [(app.agents[a].ip, str(app.agents[a].direction), app.agents[a].node) for a in node.agents]
+        return ring
 
     def __repr__(self):
         return ', '.join(str(node) for node in self._nodes)
@@ -123,6 +132,12 @@ def start():
 def reset():
     _reset()
     return redirect(url_for('index'))
+
+@app.route('/status')
+def global_status():
+    """Get the whole ring status."""
+
+    return jsonify(**app.ring.dump())
 
 @app.route('/get/<agent_ip>')
 def get_status(agent_ip):
