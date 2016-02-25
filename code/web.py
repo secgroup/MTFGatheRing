@@ -8,7 +8,7 @@ import config
 # classes
 
 class Agent():
-    def __init__(self, ip, cw=True, node=None, state='INIT'):
+    def __init__(self, ip, cw=True, node=None, state='initial'):
         self.ip = ip
         self.cw = cw
         self.state = state
@@ -106,7 +106,7 @@ def _reset():
     app.ring = Ring(config.n_nodes)
     app.agents = {ip: Agent(ip) for ip in config.agents_ips}
     app.malicious_ip = config.malicious_ip
-    app.agents[app.malicious_ip] = Agent(app.malicious_ip, state='MALICIOUS')
+    app.agents[app.malicious_ip] = Agent(app.malicious_ip, state='malicious')
     app.oriented = config.oriented
     app.started = False
     app.ring.random_place_agents()
