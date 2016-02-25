@@ -170,7 +170,7 @@ def index():
     return render_template('base.html', started=app.started)
 
 def main():
-    app.run(debug=config.debug)
+    app.run(host='0.0.0.0', debug=config.debug)
 
 if __name__ == '__main__':
     main()
