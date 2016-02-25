@@ -55,26 +55,36 @@ eyes_speed = 40
 # syncronized clock time unit in seconds
 sync_clock_time = 9
 
-server_address = 'http://10.235.76.1/'
+server_address = 'http://10.235.76.1:5000/'
 port = 3
 
 def start():
     started = False
     while not started:
         r = requests.get(server_address+'started')
+        #print(repr(r.text))
         started = r.text == '1'
         sleep(0.1)
 
-def set_node_info(turned, state):
-    par = {'agent_ip': agent_ip, 'turned': turned, 'state': state}
-    node_info_str = requests.get(server_address+'set', params = par)
+def set_node_info(turned, state, stopped = 0):
+    print('\nset {}, {}, {}'.format(turned, state, stopped))
+
+    par = {'turned': turned, 'state': state}
+    node_info_str = requests.get(server_address+'set/{}'.format(agent_ip), params = par).text
     node_info_json = json.loads(node_info_str)
     return(node_info_json['blocked'])
 
 def get_node_info():
-    par = {'agent_ip': agent_ip}
-    node_info_str = requests.get(server_address+'get', params = par)
-    return json.loads(node_info_str)
+    print('\nget')
+    node_info_str = requests.get(server_address+'get/{}'.format(agent_ip)).text
+    node_info_json = json.loads(node_info_str)
+
+    neighbors_states = node_info_json['agents']
+    blocked_last_move = node_info_json['blocked']
+
+    print('neighbors states {}'.format(neighbors_states)+'\nblocked {}'.format(blocked_last_move) )
+
+    return(neighbors_states, blocked_last_move)
 
 def get_done_robots(neighbors_states):
     done_neighbors = [state for state in neighbors_states if state == 'done']
