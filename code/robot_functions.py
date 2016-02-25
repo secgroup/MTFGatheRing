@@ -1,6 +1,18 @@
 from time import time, sleep
 from ev3dev.auto import *
+import requests
+import json
 import socket
+import fcntl
+import struct
+
+def get_ip_address(ifname):
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    return socket.inet_ntoa(fcntl.ioctl(
+        s.fileno(),
+        0x8915,  # SIOCGIFADDR
+        struct.pack('256s', ifname[:15].encode())
+    )[20:24])
 
 # motors
 motor_r = LargeMotor(OUTPUT_D)
@@ -13,6 +25,8 @@ touch = TouchSensor()
 gyro = GyroSensor()
 us = UltrasonicSensor()
 ir = InfraredSensor()
+
+agent_ip = get_ip_address('bnep0')
 
 # follow border setting
 black_color_pct = 5
@@ -27,7 +41,6 @@ cross_line_speed = -22
 rotate_over_node_speed = -22
 
 rotate_speed = -30
-
 nbr_cols_sampled = 8
 
 gathering_max_distance = 330 # mm
@@ -42,12 +55,55 @@ eyes_speed = 40
 # syncronized clock time unit in seconds
 sync_clock_time = 9
 
-#serverMACAddress = '00:17:EC:03:17:C2' # bluetooth robot 3
-#serverMACAddress = 'AC:7B:A1:A4:B8:7E' # bluetooth address my pc
-serverMACAddress = '00:17:EC:F6:06:4B' # bluetooth robot 4
+server_address = 'http://10.235.76.1/'
 port = 3
-server_socket = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_STREAM, socket.BTPROTO_RFCOMM)
-buffer_size = 32
+
+def start():
+    started = False
+    while not started:
+        r = requests.get(server_address+'started')
+        started = r.text == '1'
+        sleep(0.1)
+
+def set_node_info(turned, state):
+    par = {'agent_ip': agent_ip, 'turned': turned, 'state': state}
+    node_info_str = requests.get(server_address+'set', params = par)
+    node_info_json = json.loads(node_info_str)
+    return(node_info_json['blocked'])
+
+def get_node_info():
+    par = {'agent_ip': agent_ip}
+    node_info_str = requests.get(server_address+'get', params = par)
+    return json.loads(node_info_str)
+
+def get_done_robots(neighbors_states):
+    done_neighbors = [state for state in neighbors_states if state == 'done']
+    return (len(done_neighbors), done_neighbors)
+'''
+# return the the states of robot on the same node, 
+# and a boolean value that indicates if M is on next node
+# notify its own state to all the other neighbors
+def notify_neighbors(state):
+    # query the server
+    node_info = get_node_info()
+
+    # get the ip of other robots on the same node
+    neighbor_agents = node_info['agents']
+
+    # send to them its own state
+    for neighbor_ip in neighbor_agents:
+        # [TODO] implement send_msg with sockect
+        send_msg(agent_ip, neighbor_ip, state)
+
+    wait_a_while()
+
+    neighbors_states = []
+    for neighbor_ip in neighbor_agents:
+        # [TODO] implement recv_msg with sockect
+        neighbors_states.append( recv_msg(neighbor_ip) )
+
+    return (neighbors_states, node_info['blocked'])
+'''
 
 def look():
     if us.connected:
@@ -60,6 +116,7 @@ def look():
         # because for this robot eyes are useless
         return 999
 
+'''
 def can_I_move(clockwise_direction):
     print('query server to know if M is over next node')
     direction = int(clockwise_direction) # 1 if clockwise_direction is true, 0 otherwise
@@ -69,6 +126,7 @@ def can_I_move(clockwise_direction):
     resp = server_socket.recv(buffer_size) # 00 or 01 in byte
     int_resp = int.from_bytes(resp, byteorder='big')
     return bool(int_resp)
+'''
 
 def start_motor(motor, speed):
     #print('motor starts')
