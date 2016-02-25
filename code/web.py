@@ -157,16 +157,10 @@ def set_status(agent_ip):
     if not blocked:
         # advance to the next node if not blocked
         node = app.ring.get_node(agent.node)
-        print('PRE')
-        print(node)
         next_node = app.ring.next(agent)
         agent.node = next_node.label
-        print(next_node)
         node.agents.remove(agent_ip)
         next_node.add_agent(agent_ip)
-        print('POST')
-        print(node)
-        print(next_node)
 
     return jsonify(blocked=blocked)
 
