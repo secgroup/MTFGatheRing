@@ -1,23 +1,21 @@
 #!/usr/bin/env python3
 
 import random
-from enum import Enum
-from flask import Flask, render_template, redirect, url_for, jsonify
+from flask import Flask, render_template, redirect, url_for, request, jsonify
 import config
 
-
-Direction = Enum('Direction', 'CW CCW')
 
 # classes
 
 class Agent():
-    def __init__(self, ip, direction=None, node=None):
+    def __init__(self, ip, cw=True, node=None, state=None):
         self.ip = ip
-        self.direction = direction
+        self.cw = cw
+        self.state = state
         self.node = node
 
     def __repr__(self):
-        return 'Agent {}, Direction: {}, Node: {}'.format(self.ip, self.direction, self.node)
+        return 'Agent: ip {}, direction CW: {}, state: {}, node: {}'.format(self.ip, self.cw, self.state, self.node)
 
 class Node():
     def __init__(self, label):
@@ -31,7 +29,7 @@ class Node():
         self.agents.append(agent_ip)
 
     def __repr__(self):
-        return '<- {}: [{}] ->'.format(self.label, ', '.join(self.agents))
+        return '<Node {}: [{}]>'.format(self.label, ' | '.join(str(app.agents[ip]) for ip in self.agents))
 
 
 class Ring():
@@ -45,37 +43,35 @@ class Ring():
     def next(self, agent):
         """Return next node."""
 
-        i = 1 if agent.direction is Direction.CW else -1
+        i = 1 if agent.cw else -1
         return self._nodes[(agent.node+i) % self.n_nodes]
 
     def prev(self, agent):
         """Return prev node."""
 
-        i = 1 if agent.direction is Direction.CCW else -1
-        return self._nodes[(agent.node-i) % self.n_nodes]
+        i = -1 if agent.cw else 1
+        return self._nodes[(agent.node+i) % self.n_nodes]
 
     def blocked(self, agent):
         """Check if the next node is blocked."""
 
         # TODO: could we use this function to check if the malicious user is allowed to go on?
         next_node = self.next(agent)
-        if app.malicious_ip in next_node.agents:
-            return True
-        return False
+        return app.malicious_ip in next_node.agents
 
     def random_place_agents(self):
         """Randomly place agents in the ring."""
 
         # at most 1 agent per node, randomize direction in case of unoriented ring
         for agent, node in zip(app.agents.values(), random.sample(self._nodes, len(app.agents.keys()))):
-            agent.direction = Direction.CW if config.oriented else random.choice(list(Direction))
+            agent.cw = True if config.oriented else random.choice([True, False])
             agent.node = node.label
             self.get_node(node.label).add_agent(agent.ip)
 
     def dump(self):
         ring = dict()
         for node in self._nodes:
-           ring[str(node.label)] = [(app.agents[a].ip, str(app.agents[a].direction), app.agents[a].node) for a in node.agents]
+           ring[str(node.label)] = [(app.agents[a].ip, str(app.agents[a].cw), app.agents[a].state, app.agents[a].node) for a in node.agents]
         return ring
 
     def __repr__(self):
@@ -141,15 +137,38 @@ def global_status():
 
 @app.route('/get/<agent_ip>')
 def get_status(agent_ip):
-    """Get the list of agents in the current node and wether or not the next node is blocked."""
+    """Get the list of agents in the current node."""
 
     agent = app.agents[agent_ip]
-    return jsonify(agents=app.ring.get_node(agent.node).agents,
+    # aggiungere blocked
+    return jsonify(agents=[app.agents[ip].state for ip in app.ring.get_node(agent.node).agents if ip != agent_ip],
                    blocked=app.ring.blocked(agent))
 
-@app.route('/set/<agent_id>/<turned>')
-def set_status():
-    return render_template('base.html', started=app.started)
+@app.route('/set/<agent_ip>', methods=['GET'])
+def set_status(agent_ip):
+    turned = request.args.get('turned') == '1'
+    state = request.args.get('state')
+
+    agent = app.agents[agent_ip]
+    agent.state = state
+    agent.cw = agent.cw if not turned else not agent.cw
+
+    blocked = app.ring.blocked(agent)
+    if not blocked:
+        # advance to the next node if not blocked
+        node = app.ring.get_node(agent.node)
+        print('PRE')
+        print(node)
+        next_node = app.ring.next(agent)
+        agent.node = next_node.label
+        print(next_node)
+        node.agents.remove(agent_ip)
+        next_node.add_agent(agent_ip)
+        print('POST')
+        print(node)
+        print(next_node)
+
+    return jsonify(blocked=blocked)
 
 @app.route('/')
 def index():
