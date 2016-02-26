@@ -66,6 +66,14 @@ def start():
         started = r.text == '1'
         sleep(0.1)
 
+def set_node_info_m(turned = 0):
+    print('\nset {}'.format(turned))
+
+    par = {'turned': turned}
+    node_info_str = requests.get(server_address+'set/{}'.format(agent_ip), params = par).text
+    node_info_json = json.loads(node_info_str)
+    return(node_info_json['blocked'])
+
 def set_node_info(state, turned = 0, stopped = 0):
     print('\nset {}, {}, {}'.format(turned, state, stopped))
 
