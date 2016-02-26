@@ -55,9 +55,11 @@ class Ring():
     def blocked(self, agent):
         """Check if the next node is blocked."""
 
-        # TODO: could we use this function to check if the malicious user is allowed to go on?
         next_node = self.next(agent)
-        return app.malicious_ip in next_node.agents
+        if agent.ip == app.malicious_ip:
+            return len(next_node.agents) > 0
+        else:
+            return app.malicious_ip in next_node.agents
 
     def random_place_agents(self):
         """Randomly place agents in the ring."""
