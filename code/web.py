@@ -169,7 +169,7 @@ def _communicate_start():
     for ip in app.agents_ips + [app.malicious_ip]:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.connect((ip, port))
-        s.sendall(b'Go!\n')
+        # s.sendall(b'Go!\n')
         s.close()
 
 @app.route('/start')
