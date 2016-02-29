@@ -64,26 +64,49 @@ class Ring():
     def random_place_agents(self):
         """Randomly place agents in the ring."""
 
+        #a = app.agents[app.agents_ips[0]]
+        #a.node = 1
+        #self.get_node(1).add_agent(a.ip)
+        #a.cw = False
+        
+        #a = app.agents[app.agents_ips[1]]
+        #a.node = 2
+        #self.get_node(2).add_agent(a.ip)
+        #a.cw = False
+        
+        #a = app.agents[app.agents_ips[2]]
+        #a.node = 4
+        #self.get_node(4).add_agent(a.ip)
+        #a.cw = True
+        
+        #a = app.agents[app.malicious_ip]
+        #a.node = 6
+        #self.get_node(6).add_agent(a.ip)
+        #a.cw = True
+
+        # True = clockwise
+        # False = counterclockwise
+
         a = app.agents[app.agents_ips[0]]
         a.node = 2
         self.get_node(2).add_agent(a.ip)
-        a.cw = False
+        a.cw = True
         
         a = app.agents[app.agents_ips[1]]
-        a.node = 5
-        self.get_node(5).add_agent(a.ip)
+        a.node = 0
+        self.get_node(0).add_agent(a.ip)
         a.cw = True
         
         a = app.agents[app.agents_ips[2]]
-        a.node = 1
-        self.get_node(1).add_agent(a.ip)
+        a.node = 4
+        self.get_node(4).add_agent(a.ip)
         a.cw = False
         
         a = app.agents[app.malicious_ip]
-        a.node = 9
-        self.get_node(9).add_agent(a.ip)
+        a.node = 6
+        self.get_node(6).add_agent(a.ip)
         a.cw = True
-        
+
         return
         
         # at most 1 agent per node, randomize direction in case of unoriented ring

@@ -55,9 +55,9 @@ def main():
             # notify to server the intention of moving
             blocked_last_move = set_node_info(state)
 
-            # [TODO]
-            # add this condition in protocol, an agent can be blocked before moving
             if blocked_last_move:
+                # [TODO]
+                # check this part
                 print('robot is blocked in last move')
                 state = 'stopped'
                 #turned = True
@@ -91,8 +91,7 @@ def main():
                     cross_marker()
                     rotate_over_node()
 
-                # [TODO] no more valid condition, wait for new protocol
-                # no more than one robot for a node can be in state star
+                # [TODO] change this condition
                 elif len(neighbors_states) == 1 and neighbors_states[0] == 'star':
                     print('met a robot in state star')
                     state = 'check'
@@ -109,6 +108,7 @@ def main():
                     cross_marker()
                     rotate_over_node()
 
+                # [TODO] change this condition
                 elif is_special_node():
                     special_node_reached += 1
                     if special_node_reached == 2:
@@ -122,23 +122,27 @@ def main():
                         # to avoid robots to bump one to each other
                         rotate_over_node(time_out=4.5)
 
-        # [TODO] add this part is protocol? The semantic is the same
         elif state == 'stopped':
             neighbors_states, blocked_last_move = get_node_info()
-            begin_time = wait_clock(begin_time)
 
             # no more than one robot reach a stopped robot
             if len(neighbors_states) == 1 and neighbors_states[0] == 'initial':
                 print('met a robot in state initial')
+                begin_time = wait_clock(begin_time)
                 # a stopped robot rotated over node, so direction is changed
                 # new state is set in next state
                 state = 'collect'
 
             elif len(neighbors_states) == 1 and neighbors_states[0] == 'collect':
                 print('met a robot in state collect')
+                # wait a clock, during this time collect robot is rotating over the node
+                begin_time = wait_clock(begin_time)
+
                 # a stopped robot rotated over node, so direction is changed
                 # new state is set in next state
                 state = 'return'
+            else:
+                begin_time = wait_clock(begin_time)
                 '''
                 elif len(neighbors_states) == 1 and neighbors_states[0] == 'check':
                     print('met a robot in state check')
@@ -147,16 +151,15 @@ def main():
                     state = 'return'
                 '''
             # wait only if the state remain stopped, otherwise start moving, see others state
-            else:
-                begin_time = wait_clock(begin_time)
+            # else:
+            # begin_time = wait_clock(begin_time)
 
         elif state == 'collect':
             # notify to server the intention of moving
             blocked_last_move = set_node_info(state)
 
             # [TODO]
-            # add this condition in protocol, if there is only one stopped robot
-            # collect agent will be bump against M, if first it moves then it checks
+            # check this condition
             if blocked_last_move:
                 print('robot is blocked in last move')
                 state = 'return'
@@ -171,21 +174,12 @@ def main():
                 move_on_edge()
 
                 neighbors_states, blocked_last_move = get_node_info()
-                nbr_done_robots, done_neighbors = get_done_robots(neighbors_states)
+                nbr_done_robots = get_state_robots(neighbors_states, robot_state='done')
 
                 begin_time = wait_clock(begin_time)
 
-                # no more than one robot for a node can be in state star
-                if len(neighbors_states) == 1 and neighbors_states[0] == 'star':
-                    print('met a robot in state star')
-                    state = 'check'
-                    # [TODO]
-                    # add change direction in protocol?
-                    cross_marker()
-                    rotate_over_node()
-
                 # if found exactly one neighbor in state stopped or all the neighbors in state done
-                elif (len(neighbors_states) == 1 and neighbors_states[0] == 'stopped') or (nbr_done_robots > 0 and nbr_done_robots == len(neighbors_states)):
+                if (len(neighbors_states) == 1 and neighbors_states[0] == 'stopped') or (nbr_done_robots > 0 and nbr_done_robots == len(neighbors_states)):
 
                     if neighbors_states[0] == 'stopped':
                         print('met a robot in state stopped')
@@ -196,20 +190,27 @@ def main():
                     if nbr_done_robots % 2 == 1:
                         # note that this case never happen when the nbr of robots is 3
                         state = 'done'
+                        # [TODO] try to think how more that two robots can exit the node
                     else:
                         # for simplicity we consider only the case of max 3 robots
-                        # this means that robot reach a marker while only one stopped robot is on the other side of the node
-                        # [TODO] try to think how more that two robots can exit the node
-                        # meanwhile, a stopped robot, meeting a returning robot, became return
-                        state = 'return'
-                        set_node_info(state, turned=1, stopped=1)
-                        # other robot, in stopped state, started during the same clock
+                        # this means that robot reachs a marker while only one stopped robot is on the other side of the node
+                        # meanwhile, a stopped robot, meeting a collect robot, became return
+
+                        #motor_m.run_to_abs_pos(position_sp = 45)
                         cross_marker()
-                        rotate_over_node()
-                        #neighbors_states, blocked_last_move = get_node_info()
-                        # the first time we move, there is no need to check the other state
-                        # we known for sure that node is free because stopped robot moved from it
+                        # rotate over node in order to reach other robot
+                        # robot should stop due to collision avoidance setting
+                        rotate_over_node(collision_distance=collision_avoidance_distance)
+                        #motor_m.run_to_abs_pos(position_sp = 0)
+                        # sync, during this time stopped robot waits
                         begin_time = wait_clock(begin_time)
+                        # no need to check state
+                        # complete node
+                        rotate_over_node(time_to_settle=0)
+
+                        state = 'return'
+                        # notify the change of direction (turned = 1)
+                        set_node_info(state, turned=1, stopped=1)
 
                 elif blocked_last_move:
                     print('collect robot meets M')
@@ -217,37 +218,58 @@ def main():
                     rotate_over_node()
                     state = 'return'
 
-
-        # [TODO] manage collision between two returning robot!!!
         elif state == 'return':
-            # robot can not meet M, so move without check it
-            set_node_info(state)
-            # for simplicity we consider the case of just one other robot in state return
-            # this robot is an edge further, but it stopped once find a done robot
-            # in this case a collision occurs
-            robot_collision = move_on_edge()
 
             neighbors_states, blocked_last_move = get_node_info()
-            nbr_done_robots, done_neighbors = get_done_robots(neighbors_states)
+            nbr_star_robots = get_state_robots(neighbors_states, robot_state = 'star')
+            nbr_done_robots = get_state_robots(neighbors_states, robot_state = 'done')
 
-            # a return robot must meet at least one robot in state done
-            if nbr_done_robots >= 1:
-                print('met ' + str(nbr_done_robots) + ' robots in state done')
-                # [TODO] add this final state also in protocol
-                # first returning robot moves a bit, to leave space for other incoming robot
+            if nbr_star_robots == 1:
+                print('met a robot in state star')
+                # [TODO] solve following for this case
+
                 if nbr_done_robots == 1:
-                    print('I\'m the first returning robot')
-                    move_on_edge(collision_distance=-1, time_out=2)
-                state = 'gathering'
-
+                    state = 'gathering'
+                    set_node_info(state, stopped=1)
             else:
-                # after moving, synchronise with the clock
+                # no need to check if M is over next node
+                set_node_info(state)
+
+                # collection of more robots has been implemented by setting all these robots
+                # in state return, before moving a robot check if it is not the first returning robot
+                # ie it is not over a marker, it's over black line
+                # (we assume that no more than 2 robots are returning)
+                if not is_not_color_black( [color.value()] ): # color must be in COL-REFLECT mode
+                    print('I\'m the second returning robot')
+                    sleep(0.5)
+                    # complete the edge
+                    move_on_edge(collision_distance=-1, time_to_settle=0)
+
+                cross_marker()
+                robot_collision = move_on_edge()
+
+                # sync
+                neighbors_states, blocked_last_move = get_node_info()
+
                 begin_time = wait_clock(begin_time)
 
+                nbr_done_robots = get_state_robots(neighbors_states, robot_state = 'done')
 
-        elif state == 'check':
-            pass            
-
+                # returning robot perform gathering
+                if nbr_done_robots >= 1:
+                    # the first one move for some seconds, to leave some space for the incoming robot
+                    if not robot_collision:
+                        print('first returning robot performs gathering')
+                        cross_marker()
+                        move_on_edge(collision_distance=-1, time_out=2)
+                    else:
+                        print('second returning robot performs gathering')
+                        # the second one move for at most 2 seconds, but is stops if it detects a collision
+                        sleep(1.5)
+                        move_on_edge(time_out=2)
+                    # in both case, perform gathering
+                    state = 'gathering'
+                    set_node_info(state, stopped=1)
 
         elif state == 'done':
             # no need to set it
@@ -255,13 +277,12 @@ def main():
             begin_time = wait_clock(begin_time)
 
             # no more than one robot reach a done robot
-            if len(neighbors_states) == 1 and neighbors_states[0] == 'collect':
-                print('met a robot in state collect')
+            if len(neighbors_states) >= 1 and neighbors_states[0] == 'return':
+                print('met a robot in state return')
                 # a stopped robot rotated over node, so direction is changed
                 # new state is set in next state
                 state = 'gathering'
-                # do not set the state, in this way other robots see state done
-                # this can be used to park correctly the robot in the node of gathering
+                set_node_info(state, stopped=1)
 
 
         elif state == 'gathering':

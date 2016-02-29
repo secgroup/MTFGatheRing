@@ -1,5 +1,6 @@
 from time import time, sleep
 from ev3dev.auto import *
+from statistics import median
 import requests
 import json
 import socket
@@ -30,7 +31,7 @@ agent_ip = get_ip_address('bnep0')
 
 # follow border setting
 black_color_pct = 5
-white_color_pct = 82 #80
+white_color_pct = 85 #80
 mid_point = (black_color_pct + white_color_pct)/2
 
 color_kp = 0.45
@@ -41,10 +42,10 @@ cross_line_speed = -22
 rotate_over_node_speed = -22
 
 rotate_speed = -30
-nbr_cols_sampled = 8
+nbr_cols_sampled = 7
 
 gathering_max_distance = 330 # mm
-collision_avoidance_distance = 70 # mm
+collision_avoidance_distance = 45 # mm
 
 #eyes_rotation_degree = 140
 #rotation_degree_same_direction = 140
@@ -94,9 +95,10 @@ def get_node_info():
 
     return(neighbors_states, blocked_last_move)
 
-def get_done_robots(neighbors_states):
-    done_neighbors = [state for state in neighbors_states if state == 'done']
-    return (len(done_neighbors), done_neighbors)
+def get_state_robots(neighbors_states, robot_state):
+    done_neighbors = [state for state in neighbors_states if state == robot_state]
+    return len(done_neighbors)
+
 '''
 # return the the states of robot on the same node, 
 # and a boolean value that indicates if M is on next node
@@ -163,7 +165,10 @@ def is_color_white(color_sampled):
 # return true if color sampled is white or yellow
 def is_not_color_black(color_sampled):
     error_threshold = 10
-    avg_color_sampled = sum(color_sampled)//nbr_cols_sampled
+    # average value
+    #avg_color_sampled = sum(color_sampled)//nbr_cols_sampled
+    # median value
+    avg_color_sampled = median(color_sampled)
     # it works because yellow color pct are greater than white color pct
     # and both are greater than black color pct
     return avg_color_sampled >= (white_color_pct - error_threshold)
@@ -298,7 +303,7 @@ def cross_marker():
             stop_motors()
             break
 
-def rotate_over_node(collision_distance=-1, time_out=None):
+def rotate_over_node(collision_distance=-1, time_to_settle=3, time_out=None):
     start_time = int(time())
     print('rotate over node')
     color.mode = 'COL-REFLECT'
@@ -327,7 +332,7 @@ def rotate_over_node(collision_distance=-1, time_out=None):
             return False
 
         # stop when we found next marker
-        if ( (elapsed_time >= 3) and is_not_color_black(last_cols_sampled)):
+        if ( (elapsed_time >= time_to_settle) and is_not_color_black(last_cols_sampled)):
             stop_motors()
             left_correction()
             if collision_distance != -1:

@@ -11,7 +11,6 @@ def main():
 
     # after that each robot uses an own counter
     # in this way all the robot operations are synchronized
-    begin_time = int(time())
     print('protocol begins')
 
     '''
@@ -20,12 +19,8 @@ def main():
         set state function
         movement or rotation
         get states function
-        sync clock function    
+        sync clock function
     '''
-
-    # !!! make sure robot eyes are looking at left
-    # if not, protocol does not work as expected
-    init_eyes_motor(eyes_speed)
 
     if us.connected:
         us.mode = 'US-DIST-CM'
@@ -35,9 +30,10 @@ def main():
 
     # move untill no other robot block M
     while not set_node_info_m():
+        sleep(1)
         cross_marker()
-        move_on_edge()
-        begin_time = wait_clock(begin_time) 
+        move_on_edge(collision_distance=-1)
+        # no need to sync, M is asynchronous
 
 if __name__ == '__main__':
     main()
