@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import random
+import socket
 from flask import Flask, render_template, redirect, url_for, request, jsonify
 import config
 
@@ -161,15 +162,20 @@ def _reset():
 
 # views
 
-@app.route('/started')
-def started():
-    """Page polled by the bots to start the protocol."""
+def _communicate_start():
+    """Instruct each bot to start."""
 
-    return '1' if app.started else '0'
+    port = 31337
+    for ip in app.agents_ips + [app.malicious_ip]:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect((ip, port))
+        s.sendall(b'Go!\n')
+        s.close()
 
 @app.route('/start')
 def start():
     app.started = True
+    _communicate_start()
     return redirect(url_for('index'))
 
 @app.route('/reset')
