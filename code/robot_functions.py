@@ -54,18 +54,17 @@ collision_avoidance_distance = 45 # mm
 eyes_speed = 40
 
 # syncronized clock time unit in seconds
-sync_clock_time = 9
+sync_clock_time = 11
 
-server_address = 'http://10.235.76.1:5000/'
+server_ip = '10.235.76.1'
+server_address = 'http://{}:5000/'.format(server_ip)
 port = 3
 
 def start():
-    started = False
-    while not started:
-        r = requests.get(server_address+'started')
-        #print(repr(r.text))
-        started = r.text == '1'
-        sleep(0.1)
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.bind(('0.0.0.0', 31337))
+    s.listen(1)
+    s.close()
 
 def set_node_info_m(turned = 0):
     print('\nset {}'.format(turned))
