@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
+import time
 import random
 import socket
 from flask import Flask, render_template, redirect, url_for, request, jsonify
 import config
 
+log = None
 
 # classes
 
@@ -89,24 +91,24 @@ class Ring():
         # False = counterclockwise
 
         a = app.agents[app.agents_ips[0]]
-        a.node = 2
-        self.get_node(2).add_agent(a.ip)
-        a.cw = True
-        
-        a = app.agents[app.agents_ips[1]]
-        a.node = 0
-        self.get_node(0).add_agent(a.ip)
-        a.cw = True
-        
-        a = app.agents[app.agents_ips[2]]
-        a.node = 4
-        self.get_node(4).add_agent(a.ip)
+        a.node = 3
+        self.get_node(3).add_agent(a.ip)
         a.cw = False
         
-        a = app.agents[app.malicious_ip]
+        a = app.agents[app.agents_ips[1]]
         a.node = 6
         self.get_node(6).add_agent(a.ip)
+        a.cw = False
+        
+        a = app.agents[app.agents_ips[2]]
+        a.node = 5
+        self.get_node(5).add_agent(a.ip)
         a.cw = True
+        
+        a = app.agents[app.malicious_ip]
+        a.node = 1
+        self.get_node(1).add_agent(a.ip)
+        a.cw = False
 
         return
         
@@ -150,6 +152,7 @@ app = MTFGRServer(__name__)
 def _reset():
     """Reset the global variables by parsing again the config file."""
     import config
+    global log
 
     app.ring = Ring(config.n_nodes)
     app.agents = {ip: Agent(ip) for ip in config.agents_ips}
@@ -158,7 +161,9 @@ def _reset():
     app.oriented = config.oriented
     app.started = False
     app.ring.random_place_agents()
-
+    
+    log = open('/tmp/ev3.log', 'a')
+    log.write('\n\nIIIIIIIIIINNNNNNNNNIIIIIIIIIIITTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT\\n\n')
 
 # views
 
@@ -166,7 +171,7 @@ def _communicate_start():
     """Instruct each bot to start."""
 
     port = 31337
-    for ip in app.agents_ips + [app.malicious_ip]:
+    for ip in app.agents_ips[::-1] + [app.malicious_ip]:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.connect((ip, port))
         # s.sendall(b'Go!\n')
@@ -175,7 +180,10 @@ def _communicate_start():
 @app.route('/start')
 def start():
     app.started = True
-    _communicate_start()
+    try:
+        _communicate_start()
+    except Exception:
+        pass
     return redirect(url_for('index'))
 
 @app.route('/reset')
@@ -200,9 +208,18 @@ def get_status(agent_ip):
 
 @app.route('/set/<agent_ip>', methods=['GET'])
 def set_status(agent_ip):
+    global log
+    
     turned = request.args.get('turned') == '1' 
     state = request.args.get('state')
     stopped = request.args.get('stopped') == '1'
+    
+    # logging
+    sss = '\n\n[Request] {} - ip: {}, turned: {}, state: {}, stopped: {}\n'.format(time.time(), agent_ip, turned, state, stopped)
+    log.write(sss)
+    log.write('[Status pre]\n')
+    log.write(str(app.ring.dump()))
+    
     
     agent = app.agents[agent_ip]
     agent.state = state
@@ -217,6 +234,9 @@ def set_status(agent_ip):
         node.agents.remove(agent_ip)
         next_node.add_agent(agent_ip)
 
+    log.write('\n[Status post]\n')
+    log.write(str(app.ring.dump()))
+    
     return jsonify(blocked=blocked)
 
 @app.route('/')

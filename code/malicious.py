@@ -1,7 +1,7 @@
-#from rvor_functions import *
 import threading
-import socket
+#import socket
 from random import randrange
+from robot_functions import *
 
 # nodes_robots[i] = j means robot j is over node i
 #               0   1   2   3   4
@@ -16,7 +16,10 @@ nbr_nodes = 10
 #robots_positions = [0,  3,  1]
 #robots_positions = [0,  4,  2]
 #robots_positions = [4,  3,  5]
-robots_positions = [2,  3,  4, 5]
+#robots_positions = [2,  3,  4, 5]
+#robots_positions = [7,  0,  2, 4]
+#robots_positions = [1,  7,  3, 4]
+robots_positions = [0,  6,  2, 4]
 
 id_M = 4
 nbr_honest_robots = len(robots_positions) - 1 # all robots except M
@@ -26,7 +29,7 @@ gathered_robots = [0, 0, 0]
 
 # MAC address of brick bluetooth adapter, see BD address of hciconfig command
 #hostMACAddress = '00:17:EC:03:17:C2'
-hostMACAddress = 'AC:7B:A1:A4:B8:7E'
+hostMACAddress = '00:17:EC:F6:06:4B'
 # arbitrary port, but clients must use the same port
 port = 3
 backlog = 1
@@ -200,7 +203,15 @@ client_socket_3.send(start)
 clockwise_direction = True
 
 while( not robots_gathered() ):
-    a = 5 # do nothing
+    # if it is possible, escape in CW direction
+    if can_I_move(True):
+        cross_marker()
+        move_on_edge(collision_distance=-1)
+        sleep(2)
+    # otherwise wait a while
+    else:
+        sleep(3)
+
 
 print('honest robots gathered\nstop')
 

@@ -7,14 +7,6 @@ import socket
 import fcntl
 import struct
 
-def get_ip_address(ifname):
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    return socket.inet_ntoa(fcntl.ioctl(
-        s.fileno(),
-        0x8915,  # SIOCGIFADDR
-        struct.pack('256s', ifname[:15].encode())
-    )[20:24])
-
 # motors
 motor_r = LargeMotor(OUTPUT_D)
 motor_l = LargeMotor(OUTPUT_A)
@@ -27,11 +19,9 @@ gyro = GyroSensor()
 us = UltrasonicSensor()
 ir = InfraredSensor()
 
-agent_ip = get_ip_address('bnep0')
-
 # follow border setting
 black_color_pct = 5
-white_color_pct = 85 #80
+white_color_pct = 84 #80
 mid_point = (black_color_pct + white_color_pct)/2
 
 color_kp = 0.45
@@ -47,6 +37,8 @@ nbr_cols_sampled = 7
 gathering_max_distance = 330 # mm
 collision_avoidance_distance = 45 # mm
 
+max_cross_time = 1.5
+
 #eyes_rotation_degree = 140
 #rotation_degree_same_direction = 140
 #rotation_degree_diff_direction = 20
@@ -54,17 +46,37 @@ collision_avoidance_distance = 45 # mm
 eyes_speed = 40
 
 # syncronized clock time unit in seconds
-sync_clock_time = 11
+#sync_clock_time = 11   # for unoriented ring protocol
+sync_clock_time = 16    # for oriented ring protocol
 
+# for unoriented ring protocol
 server_ip = '10.235.76.1'
 server_address = 'http://{}:5000/'.format(server_ip)
 port = 3
+
+# for oriented ring protocol
+serverMACAddress = '00:17:EC:F6:06:4B' # bluetooth mac address of malicious robot
+port = 3
+server_socket = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_STREAM, socket.BTPROTO_RFCOMM)
+buffer_size = 32
+
+def get_ip_address(ifname):
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    return socket.inet_ntoa(fcntl.ioctl(
+        s.fileno(),
+        0x8915,  # SIOCGIFADDR
+        struct.pack('256s', ifname[:15].encode())
+    )[20:24])
+
+agent_ip = get_ip_address('bnep0')
 
 def start():
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.bind(('0.0.0.0', 31337))
     s.listen(1)
+    s.accept()
     s.close()
+    Sound.tone(1200, 300)
 
 def set_node_info_m(turned = 0):
     print('\nset {}'.format(turned))
@@ -98,32 +110,6 @@ def get_state_robots(neighbors_states, robot_state):
     done_neighbors = [state for state in neighbors_states if state == robot_state]
     return len(done_neighbors)
 
-'''
-# return the the states of robot on the same node, 
-# and a boolean value that indicates if M is on next node
-# notify its own state to all the other neighbors
-def notify_neighbors(state):
-    # query the server
-    node_info = get_node_info()
-
-    # get the ip of other robots on the same node
-    neighbor_agents = node_info['agents']
-
-    # send to them its own state
-    for neighbor_ip in neighbor_agents:
-        # [TODO] implement send_msg with sockect
-        send_msg(agent_ip, neighbor_ip, state)
-
-    wait_a_while()
-
-    neighbors_states = []
-    for neighbor_ip in neighbor_agents:
-        # [TODO] implement recv_msg with sockect
-        neighbors_states.append( recv_msg(neighbor_ip) )
-
-    return (neighbors_states, node_info['blocked'])
-'''
-
 def look():
     if us.connected:
         return us.value()
@@ -135,7 +121,6 @@ def look():
         # because for this robot eyes are useless
         return 999
 
-'''
 def can_I_move(clockwise_direction):
     print('query server to know if M is over next node')
     direction = int(clockwise_direction) # 1 if clockwise_direction is true, 0 otherwise
@@ -145,7 +130,6 @@ def can_I_move(clockwise_direction):
     resp = server_socket.recv(buffer_size) # 00 or 01 in byte
     int_resp = int.from_bytes(resp, byteorder='big')
     return bool(int_resp)
-'''
 
 def start_motor(motor, speed):
     #print('motor starts')
@@ -294,9 +278,16 @@ def follow_border(color_value, speed, line_ext):
 
 def cross_marker():
     print('cross marker area')
+    start_time = time()
+
     color.mode = 'COL-COLOR'
     start_motors(cross_line_speed)
+
     while True:
+        if time() - start_time >= max_cross_time:
+            print('max cross time reached\nstop')
+            break
+
         if color.value() == 1: # black color
             print('marker crossed\nstop')
             stop_motors()
@@ -341,6 +332,7 @@ def rotate_over_node(collision_distance=-1, time_to_settle=3, time_out=None):
 
         if collision_distance != -1:
             us_value = look()
+            print(us_value)
             if ( us_value <= collision_distance ):
                 stop_motors()
                 print('a stopped robot has been detected at ' + str(us_value) + ' mm \nstop')

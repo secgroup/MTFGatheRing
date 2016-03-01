@@ -4,14 +4,7 @@ from requests import post
 from json import loads
 
 def main():
-    # query the server to start
-    print('connect to server')
 
-    start()
-
-    # after that each robot uses an own counter
-    # in this way all the robot operations are synchronized
-    begin_time = int(time())
     print('protocol begins')
 
     '''
@@ -28,8 +21,6 @@ def main():
     init_eyes_motor(eyes_speed)
 
     # init values
-    #moved = False
-    #clockwise_direction = True
     state = 'initial'
     special_node_reached = 0
 
@@ -42,6 +33,14 @@ def main():
         ir.mode = 'IR-PROX'
 
     previous_state = state
+
+    # query the server to start
+    print('connect to server')
+
+    start()
+    # after that each robot uses an own counter
+    # in this way all the robot operations are synchronized
+    begin_time = int(time())
 
     while True:
         # print current state for debugging
@@ -56,8 +55,7 @@ def main():
             blocked_last_move = set_node_info(state)
 
             if blocked_last_move:
-                # [TODO]
-                # check this part
+
                 print('robot is blocked in last move')
                 state = 'stopped'
                 #turned = True
@@ -91,11 +89,6 @@ def main():
                     cross_marker()
                     rotate_over_node()
 
-                # [TODO] change this condition
-                elif len(neighbors_states) == 1 and neighbors_states[0] == 'star':
-                    print('met a robot in state star')
-                    state = 'check'
-
                 # no more than one robot in state initial can reach M,
                 # without first reach a stopped robot
                 elif len(neighbors_states) == 0 and blocked_last_move:
@@ -111,7 +104,8 @@ def main():
                 # [TODO] change this condition
                 elif is_special_node():
                     special_node_reached += 1
-                    if special_node_reached == 2:
+                    nbr_star_robots = get_state_robots(neighbors_states, robot_state='star')
+                    if special_node_reached == 2 and nbr_star_robots == 0:
                         state = 'star'
                         # move robot in the middle of the curve
                         # because other robots could arrive from both the direction
@@ -123,12 +117,16 @@ def main():
                         rotate_over_node(time_out=4.5)
 
         elif state == 'stopped':
+            # during this time, other robots perform a set
+            sleep(2)
             neighbors_states, blocked_last_move = get_node_info()
 
             # no more than one robot reach a stopped robot
             if len(neighbors_states) == 1 and neighbors_states[0] == 'initial':
                 print('met a robot in state initial')
+
                 begin_time = wait_clock(begin_time)
+
                 # a stopped robot rotated over node, so direction is changed
                 # new state is set in next state
                 state = 'collect'
@@ -136,10 +134,11 @@ def main():
             elif len(neighbors_states) == 1 and neighbors_states[0] == 'collect':
                 print('met a robot in state collect')
                 # wait a clock, during this time collect robot is rotating over the node
-                begin_time = wait_clock(begin_time)
+                begin_time = wait_clock(begin_time, nbr_clocks=2)
 
                 # a stopped robot rotated over node, so direction is changed
                 # new state is set in next state
+                first_returning_robot = True
                 state = 'return'
             else:
                 begin_time = wait_clock(begin_time)
@@ -158,8 +157,6 @@ def main():
             # notify to server the intention of moving
             blocked_last_move = set_node_info(state)
 
-            # [TODO]
-            # check this condition
             if blocked_last_move:
                 print('robot is blocked in last move')
                 state = 'return'
@@ -200,7 +197,8 @@ def main():
                         cross_marker()
                         # rotate over node in order to reach other robot
                         # robot should stop due to collision avoidance setting
-                        rotate_over_node(collision_distance=collision_avoidance_distance)
+                        #rotate_over_node(collision_distance=collision_avoidance_distance)
+                        rotate_over_node(time_out=3)
                         #motor_m.run_to_abs_pos(position_sp = 0)
                         # sync, during this time stopped robot waits
                         begin_time = wait_clock(begin_time)
@@ -208,7 +206,9 @@ def main():
                         # complete node
                         rotate_over_node(time_to_settle=0)
 
+                        first_returning_robot = False
                         state = 'return'
+
                         # notify the change of direction (turned = 1)
                         set_node_info(state, turned=1, stopped=1)
 
@@ -239,7 +239,8 @@ def main():
                 # in state return, before moving a robot check if it is not the first returning robot
                 # ie it is not over a marker, it's over black line
                 # (we assume that no more than 2 robots are returning)
-                if not is_not_color_black( [color.value()] ): # color must be in COL-REFLECT mode
+                #if not is_not_color_black( [color.value()] ): # color must be in COL-REFLECT mode
+                if not first_returning_robot: # color must be in COL-REFLECT mode
                     print('I\'m the second returning robot')
                     sleep(0.5)
                     # complete the edge
@@ -283,7 +284,6 @@ def main():
                 # new state is set in next state
                 state = 'gathering'
                 set_node_info(state, stopped=1)
-
 
         elif state == 'gathering':
             # protocol ends

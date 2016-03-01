@@ -1,4 +1,4 @@
-from agent_functions import *
+from robot_functions import *
 
 def main():
     # query the server to start
@@ -149,7 +149,7 @@ def main():
                 # only the second follower enter in this state
                 print('I\'m the second follower')
                 # wait while the other follower is moving
-                sleep(2)
+                sleep(2.5)
                 move_on_edge() # stop with collision
                 state = 'done'
             else:
@@ -183,7 +183,6 @@ def main():
 
             # exit the program
             break
-            # [TODO] some errors are shown on terminal, check why
 
 
         elif state == 'stopped':
