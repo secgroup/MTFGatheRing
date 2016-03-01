@@ -12,13 +12,6 @@ from robot_functions import *
 nbr_nodes = 10
 # robots_positions[i] = j means robot i+1 is on node j
 # robot ids start from 1, not 0, see number on brick
-# robot indices     1   2   3
-#robots_positions = [0,  3,  1]
-#robots_positions = [0,  4,  2]
-#robots_positions = [4,  3,  5]
-#robots_positions = [2,  3,  4, 5]
-#robots_positions = [7,  0,  2, 4]
-#robots_positions = [1,  7,  3, 4]
 robots_positions = [0,  6,  2, 4]
 
 id_M = 4
@@ -38,7 +31,6 @@ size = 32
 # map a bluetooth port with the id of the relative robot ID (see number on brick)
 # as many entries as nbr of robots
 addresses_ids = {'00:17:EC:03:87:1B': 1, '00:17:EC:03:2C:70': 2, '00:17:EC:03:17:C2' : 3}
-#addresses_ids = {'00:17:EC:03:17:C2': 1, '00:17:EC:03:2C:70': 2} # test!!! 00:17:EC:03:17:C2 è dove c'è il codice temporaneo per M
 
 class myThread (threading.Thread):
     def __init__(self, thread_id, client_socket):
@@ -106,7 +98,6 @@ def receive_data(thread_id, client_socket):
 def robots_gathered():
     return sum(gathered_robots) == nbr_honest_robots
 
-# True = clockwise
 def random_direction():
     print('choose a direction')
     # randrange(3) = {0,1,2}
@@ -193,11 +184,6 @@ client_socket_1.send(start)
 client_socket_2.send(start)
 client_socket_3.send(start)
 
-# Add threads to thread list
-#threads = []
-#threads.append(thread_1)
-#threads.append(thread_2)
-
 # we assume M moved in CW direction,
 # that is it is in the internal ring
 clockwise_direction = True
@@ -215,10 +201,5 @@ while( not robots_gathered() ):
 
 print('honest robots gathered\nstop')
 
-# Wait for all threads to complete
-#for t in threads:
-    #t.join()
-
 # close the listener socket when all the client exit
 s.close()
-
